@@ -35,6 +35,7 @@ import com.hazelcast.util.StringUtil;
 
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.fabric8.kubernetes.api.model.EndpointAddress;
+import io.fabric8.kubernetes.api.model.EndpointPort;
 import io.fabric8.kubernetes.api.model.EndpointSubset;
 import io.fabric8.kubernetes.api.model.Endpoints;
 import io.fabric8.kubernetes.api.model.EndpointsList;
@@ -45,6 +46,7 @@ import io.fabric8.kubernetes.client.KubernetesClient;
 
 class ServiceEndpointResolver extends HazelcastKubernetesDiscoveryStrategy.EndpointResolver {
 
+//    private static final Logger LOGGER = LoggerFactory.getLogger(ServiceEndpointResolver.class);
     private final String serviceName;
     private final String serviceLabel;
     private final String serviceLabelValue;
@@ -77,6 +79,7 @@ class ServiceEndpointResolver extends HazelcastKubernetesDiscoveryStrategy.Endpo
     List<DiscoveryNode> resolve() {
         List<DiscoveryNode> result = Collections.emptyList();
         if (serviceName != null && !serviceName.isEmpty()) {
+            System.out.println("Service Name is :" +  serviceName + "!");
             result = getSimpleDiscoveryNodes(client.endpoints().inNamespace(namespace).withName(serviceName).get());
         }
 
@@ -109,20 +112,37 @@ class ServiceEndpointResolver extends HazelcastKubernetesDiscoveryStrategy.Endpo
 
     private List<DiscoveryNode> getSimpleDiscoveryNodes(Endpoints endpoints) {
         if (endpoints == null) {
+//            LOGGER.error("No endpoints for service " + serviceName + "! Check if service is up or not" );
             return Collections.emptyList();
         }
         List<DiscoveryNode> discoveredNodes = new ArrayList<DiscoveryNode>();
         for (EndpointSubset endpointSubset : endpoints.getSubsets()) {
-            for (EndpointAddress endpointAddress : endpointSubset.getAddresses()) {
-                Map<String, Object> properties = endpointAddress.getAdditionalProperties();
-                String ip = endpointAddress.getIp();
-                InetAddress inetAddress = mapAddress(ip);
-                int port = getServicePort(properties);
-                Address address = new Address(inetAddress, port);
-                discoveredNodes.add(new SimpleDiscoveryNode(address, properties));
+            List<EndpointPort> endpointPorts = endpointSubset.getPorts();
+            if (endpointSubset.getAddresses() == null) {
+                continue;
+            }
+            for (EndpointAddress endpointAddress : endpointSubset.getNotReadyAddresses()) {
+                addAddress(discoveredNodes, endpointAddress, endpointPorts);
+            }
+
+            //if there are not ready address, we still need them
+            //TODO we may need to give 2 secs for kubernetes to be ready for batch service
+            //As batch server cluster is created later.
+            for (EndpointAddress endpointAddress : endpointSubset.getNotReadyAddresses()) {
+                addAddress(discoveredNodes, endpointAddress, endpointPorts);
             }
         }
         return discoveredNodes;
+    }
+
+    private void addAddress(List<DiscoveryNode> discoveredNodes, EndpointAddress endpointAddress, List<EndpointPort> endpointPorts) {
+        Map<String, Object> properties = endpointAddress.getAdditionalProperties();
+        String ip = endpointAddress.getIp();
+        InetAddress inetAddress = mapAddress(ip);
+        //one port for each service. If we have more than one port in one service, this will be a problem
+        int port = endpointPorts.get(0).getPort();
+        Address address = new Address(inetAddress, port);
+        discoveredNodes.add(new SimpleDiscoveryNode(address, properties));
     }
 
     @Override
