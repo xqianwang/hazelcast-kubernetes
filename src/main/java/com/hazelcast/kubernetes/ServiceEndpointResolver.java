@@ -118,9 +118,6 @@ class ServiceEndpointResolver extends HazelcastKubernetesDiscoveryStrategy.Endpo
         List<DiscoveryNode> discoveredNodes = new ArrayList<DiscoveryNode>();
         for (EndpointSubset endpointSubset : endpoints.getSubsets()) {
             List<EndpointPort> endpointPorts = endpointSubset.getPorts();
-            if (endpointSubset.getAddresses() == null) {
-                continue;
-            }
             for (EndpointAddress endpointAddress : endpointSubset.getNotReadyAddresses()) {
                 addAddress(discoveredNodes, endpointAddress, endpointPorts);
             }
@@ -128,8 +125,10 @@ class ServiceEndpointResolver extends HazelcastKubernetesDiscoveryStrategy.Endpo
             //if there are not ready address, we still need them
             //TODO we may need to give 2 secs for kubernetes to be ready for batch service
             //As batch server cluster is created later.
-            for (EndpointAddress endpointAddress : endpointSubset.getNotReadyAddresses()) {
-                addAddress(discoveredNodes, endpointAddress, endpointPorts);
+            if (endpointSubset.getNotReadyAddresses() != null) {
+                for (EndpointAddress endpointAddress : endpointSubset.getNotReadyAddresses()) {
+                    addAddress(discoveredNodes, endpointAddress, endpointPorts);
+                }
             }
         }
         return discoveredNodes;
