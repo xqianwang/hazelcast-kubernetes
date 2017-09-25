@@ -16,17 +16,17 @@
 
 package com.hazelcast.kubernetes;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.util.List;
+import java.util.Map;
+
 import com.hazelcast.config.NetworkConfig;
 import com.hazelcast.config.properties.PropertyDefinition;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.spi.discovery.AbstractDiscoveryStrategy;
 import com.hazelcast.spi.discovery.DiscoveryNode;
 import com.hazelcast.util.StringUtil;
-
-import java.net.InetAddress;
-import java.net.UnknownHostException;
-import java.util.List;
-import java.util.Map;
 
 import static com.hazelcast.kubernetes.KubernetesProperties.KUBERNETES_API_TOKEN;
 import static com.hazelcast.kubernetes.KubernetesProperties.KUBERNETES_MASTER_URL;
@@ -90,14 +90,17 @@ final class HazelcastKubernetesDiscoveryStrategy
         return namespace;
     }
 
+    @Override
     public void start() {
         endpointResolver.start();
     }
 
+    @Override
     public Iterable<DiscoveryNode> discoverNodes() {
         return endpointResolver.resolve();
     }
 
+    @Override
     public void destroy() {
         endpointResolver.destroy();
     }
@@ -185,6 +188,7 @@ final class HazelcastKubernetesDiscoveryStrategy
 
         protected int getServicePort(Map<String, Object> properties) {
             int port = NetworkConfig.DEFAULT_PORT;
+            //TODO  need to figure out what exactly does additional properties mean!!!!!!
             if (properties != null) {
                 String servicePort = (String) properties.get(HAZELCAST_SERVICE_PORT);
                 if (servicePort != null) {
