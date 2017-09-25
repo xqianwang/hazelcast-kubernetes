@@ -118,7 +118,10 @@ class ServiceEndpointResolver extends HazelcastKubernetesDiscoveryStrategy.Endpo
         List<DiscoveryNode> discoveredNodes = new ArrayList<DiscoveryNode>();
         for (EndpointSubset endpointSubset : endpoints.getSubsets()) {
             List<EndpointPort> endpointPorts = endpointSubset.getPorts();
-            for (EndpointAddress endpointAddress : endpointSubset.getNotReadyAddresses()) {
+            if (endpointSubset.getAddresses() == null) {
+                continue;
+            }
+            for (EndpointAddress endpointAddress : endpointSubset.getAddresses()) {
                 addAddress(discoveredNodes, endpointAddress, endpointPorts);
             }
 
@@ -140,6 +143,7 @@ class ServiceEndpointResolver extends HazelcastKubernetesDiscoveryStrategy.Endpo
         InetAddress inetAddress = mapAddress(ip);
         //one port for each service. If we have more than one port in one service, this will be a problem
         int port = endpointPorts.get(0).getPort();
+        System.out.println("Service " + serviceName + "Port number is " + port + "!");
         Address address = new Address(inetAddress, port);
         discoveredNodes.add(new SimpleDiscoveryNode(address, properties));
     }
